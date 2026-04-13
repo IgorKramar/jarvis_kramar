@@ -8,8 +8,10 @@ from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
 
 def print_welcome():
     """Print welcome message and instructions"""
+    from .config import PERSONALITY_NAME
+    
     print("\n" + "=" * 60)
-    print("🤖 AI Assistant (LM Studio)")
+    print(f"🎩 {PERSONALITY_NAME} - Your Personal AI Butler")
     print("=" * 60)
     print("Commands:")
     print("  /help     - Show this help message")
@@ -18,6 +20,7 @@ def print_welcome():
     print("  /load     - Load chat history from file")
     print("  /models   - List available models")
     print("  /model    - Switch to a different model")
+    print("  /personality - Display current personality settings")
     print("  /quit     - Exit the assistant")
     print("=" * 60)
     print()
@@ -107,6 +110,13 @@ def main():
                         else:
                             print(f"Model '{new_model}' not found. Use /models to see available models.\n")
                 
+                elif command == '/personality':
+                    from .config import PERSONALITY_NAME, PERSONALITY_DESCRIPTION
+                    print(f"\n🎭 Current Personality: {PERSONALITY_NAME}")
+                    print("-" * 60)
+                    print(PERSONALITY_DESCRIPTION)
+                    print("-" * 60 + "\n")
+                
                 else:
                     print(f"Unknown command: {command}. Type /help for available commands.\n")
                 
@@ -116,7 +126,7 @@ def main():
             chat.add_user_message(user_input)
             
             # Get response from AI
-            print("🤖 Assistant: ", end="", flush=True)
+            print("🎩 Jarvis: ", end="", flush=True)
             
             try:
                 full_response = ""
