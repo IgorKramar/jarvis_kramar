@@ -12,6 +12,8 @@ class LMStudioClient:
         self.model = model or LM_STUDIO_MODEL
         self.language = language
         self.session = requests.Session()
+        self.temperature = 0.7  # Default temperature
+        self.max_tokens = 2048  # Default max tokens
     
     def set_language(self, language: str):
         """Set the response language"""
@@ -105,3 +107,18 @@ class LMStudioClient:
         response.raise_for_status()
         data = response.json()
         return data['choices'][0]['message']['content']
+    
+    def chat_stream(self, user_message: str, chat_history) -> Generator[str, None, None]:
+        """Stream chat completion with history"""
+        messages = [
+            {"role": "system", "content": self.get_system_prompt()}
+        ] + chat_history.get_messages()
+        
+        messages.append({"role": "user", "content": user_message})
+        
+        yield from self.chat_completion(
+            messages=messages,
+            max_tokens=self.max_tokens,
+            temperature=self.temperature,
+            stream=True
+        )
