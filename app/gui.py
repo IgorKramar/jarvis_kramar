@@ -10,6 +10,7 @@ from datetime import datetime
 from .client import LMStudioClient
 from .chat import ChatHistory
 from .config import Config, DEFAULT_CONFIG
+from .voice import get_voice_manager, VoiceManager
 
 
 class SteampunkTheme:
@@ -57,6 +58,11 @@ class JarvisGUI(ctk.CTk):
         self.chat_history = None
         self.is_streaming = False
         self.current_response = ""
+        
+        # Голосовой менеджер
+        self.voice_manager: VoiceManager = None
+        self.voice_enabled = False
+        self.auto_speak = True  # Автоматически озвучивать ответы
         
         # Создание интерфейса
         self._setup_styles()
@@ -332,6 +338,43 @@ class JarvisGUI(ctk.CTk):
         )
         self.settings_btn.pack(pady=5, padx=10, fill="x")
         
+        # Голосовое управление
+        voice_label = ctk.CTkLabel(
+            sidebar,
+            text="Voice Control:",
+            **self.styles["label_normal"]
+        )
+        voice_label.pack(pady=(20, 5), padx=10, anchor="w")
+        
+        self.voice_toggle_btn = ctk.CTkButton(
+            sidebar,
+            text="🎤 Voice: OFF",
+            command=self._toggle_voice,
+            **self.styles["button_secondary"]
+        )
+        self.voice_toggle_btn.pack(pady=5, padx=10, fill="x")
+        
+        self.speak_toggle_var = ctk.BooleanVar(value=True)
+        self.speak_toggle = ctk.CTkSwitch(
+            sidebar,
+            text="Auto Speak",
+            variable=self.speak_toggle_var,
+            command=self._toggle_auto_speak,
+            fg_color=SteampunkTheme.BRONZE,
+            progress_color=SteampunkTheme.GOLD,
+            font=self.button_font
+        )
+        self.speak_toggle.pack(pady=5, padx=10, anchor="w")
+        
+        self.listen_btn = ctk.CTkButton(
+            sidebar,
+            text="🎙 Listen Once",
+            command=self._listen_once,
+            **self.styles["button_accent"],
+            state="disabled"
+        )
+        self.listen_btn.pack(pady=5, padx=10, fill="x")
+        
         # Информация о подключении
         conn_label = ctk.CTkLabel(
             sidebar,
@@ -579,6 +622,9 @@ class JarvisGUI(ctk.CTk):
                 chunk = self.response_queue.get_nowait()
                 
                 if chunk is None:
+                    # Генерация завершена - озвучиваем полный ответ
+                    if self.current_response:
+                        self._speak_response(self.current_response)
                     self._stop_streaming_ui()
                     break
                 else:
@@ -803,6 +849,133 @@ class JarvisGUI(ctk.CTk):
     
     def _on_closing(self):
         """Обработка закрытия окна"""
+
+    # ========== Voice Control Methods ==========
+
+    def _toggle_voice(self):
+        """Переключение голосового управления"""
+
+        if not self.voice_enabled:
+            # Включение голоса
+            try:
+                self.voice_manager = get_voice_manager()
+
+                if self.voice_manager.is_available():
+                    self.voice_enabled = True
+                    self.voice_toggle_btn.configure(
+                        text="🎤 Voice: ON",
+                        fg_color=SteampunkTheme.ACCENT_GREEN,
+                        hover_color="#00CC66"
+                    )
+                    self.listen_btn.configure(state="normal")
+
+                    # Установка языка для TTS
+                    lang_code = self.lang_var.get()
+                    if lang_code == 'auto':
+                        lang_code = 'en'
+                    self.voice_manager.set_language(lang_code)
+
+                    self._add_system_message("Voice control activated. Jarvis will now speak responses.")
+                else:
+                    self._add_system_message("Voice hardware not available. Please check microphone and audio settings.")
+
+            except Exception as e:
+                self._add_system_message(f"Voice initialization error: {str(e)}")
+        else:
+            # Выключение голоса
+            self.voice_enabled = False
+            self.voice_toggle_btn.configure(
+                text="🎤 Voice: OFF",
+                fg_color=SteampunkTheme.DARK_BRONZE,
+                hover_color=SteampunkTheme.BRONZE
+            )
+            self.listen_btn.configure(state="disabled")
+
+            if self.voice_manager:
+                self.voice_manager.stop_listening()
+
+            self._add_system_message("Voice control deactivated.")
+
+    def _toggle_auto_speak(self):
+        """Переключение автоматического озвучивания"""
+
+        self.auto_speak = self.speak_toggle_var.get()
+
+        if self.auto_speak:
+            self.status_label.configure(text="Auto-speak: ENABLED")
+        else:
+            self.status_label.configure(text="Auto-speak: DISABLED")
+
+    def _listen_once(self):
+        """Однократное прослушивание голоса"""
+
+        if not self.voice_manager or not self.voice_enabled:
+            return
+
+        # Блокировка кнопки во время прослушивания
+        self.listen_btn.configure(state="disabled", text="🎙 Listening...")
+
+        # Определение языка для распознавания
+        lang_code = self.lang_var.get()
+        if lang_code == 'auto':
+            lang_code = 'en-US'
+        elif lang_code == 'ru':
+            lang_code = 'ru-RU'
+        elif lang_code == 'de':
+            lang_code = 'de-DE'
+        elif lang_code == 'fr':
+            lang_code = 'fr-FR'
+        elif lang_code == 'es':
+            lang_code = 'es-ES'
+        else:
+            lang_code = 'en-US'
+
+        def on_recognized(text):
+            if text:
+                # Вставка распознанного текста в поле ввода
+                self.input_entry.delete("1.0", "end")
+                self.input_entry.insert("1.0", text)
+                self.status_label.configure(text=f"Recognized: {text}")
+
+                # Автоматическая отправка
+                self.after(500, self._send_message)
+
+            # Возврат кнопки в исходное состояние
+            self.listen_btn.configure(state="normal", text="🎙 Listen Once")
+
+        # Запуск прослушивания в отдельном потоке
+        thread = threading.Thread(
+            target=lambda: self.voice_manager.listen_once(language=lang_code, callback=on_recognized),
+            daemon=True
+        )
+        thread.start()
+
+    def _speak_response(self, text):
+        """Озвучивание ответа Джарвиса"""
+
+        if not self.voice_enabled or not self.auto_speak or not self.voice_manager:
+            return
+
+        # Очистка текста от маркеров времени и системных сообщений
+        clean_text = text.strip()
+        if clean_text:
+            self.voice_manager.speak(clean_text)
+
+    def _on_language_change(self, new_lang):
+        """Обработка смены языка"""
+
+        if self.chat_history:
+            self.chat_history.set_language(new_lang)
+
+        if self.client:
+            self.client.set_language(new_lang)
+
+        # Обновление языка для TTS
+        if self.voice_manager and self.voice_enabled:
+            self.voice_manager.set_language(new_lang if new_lang != 'auto' else 'en')
+
+        self.status_label.configure(text=f"Language changed to: {new_lang.upper()}")
+
         
         self.is_streaming = False
         self.destroy()
