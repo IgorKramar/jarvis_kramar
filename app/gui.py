@@ -367,7 +367,6 @@ class JarvisGUI(ctk.CTk):
             wrap="word",
             font=self.text_font,
             text_color=SteampunkTheme.TEXT_COLOR,
-            cursor_color=SteampunkTheme.GOLD,
             state="disabled"
         )
         self.chat_display.pack(fill="both", expand=True, padx=10, pady=10)
