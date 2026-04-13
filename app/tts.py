@@ -5,6 +5,7 @@ TTS модуль на основе Silero для синтеза речи.
 
 import sounddevice as sd
 import torch
+import numpy as np
 import time
 from typing import Optional
 
@@ -65,7 +66,7 @@ class SileroTTS:
             print(f"TTS: Error loading model: {e}")
             raise
     
-    def text2speech(self, text: str, play: bool = True) -> Optional[bytes]:
+    def text2speech(self, text: str, play: bool = True) -> Optional[np.ndarray]:
         """
         Преобразует текст в речь и воспроизводит его.
         
@@ -74,7 +75,7 @@ class SileroTTS:
             play: Воспроизводить ли аудио (по умолчанию True)
             
         Returns:
-            Аудиоданные или None при ошибке
+            Аудиоданные (numpy array) или None при ошибке
         """
         if not self.__MODEL__:
             print("TTS: Model not loaded")
