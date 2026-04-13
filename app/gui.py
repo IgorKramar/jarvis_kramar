@@ -551,7 +551,7 @@ class JarvisGUI(ctk.CTk):
             
             # Добавление в историю
             if self.current_response:
-                self.chat_history.add_message("assistant", self.current_response)
+                self.chat_history.add_assistant_message(self.current_response)
             
             self.response_queue.put(None)  # Сигнал окончания
             
@@ -618,7 +618,7 @@ class JarvisGUI(ctk.CTk):
         
         # Добавление в историю
         if self.chat_history:
-            self.chat_history.add_message("user", message)
+            self.chat_history.add_user_message(message)
     
     def _add_system_message(self, message):
         """Добавление системного сообщения"""
