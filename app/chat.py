@@ -2,13 +2,14 @@
 import json
 from typing import Optional
 from pathlib import Path
-from .config import HISTORY_FILE, MAX_HISTORY_LENGTH, SYSTEM_PROMPT
+from .config import HISTORY_FILE, MAX_HISTORY_LENGTH, SYSTEM_PROMPT, SYSTEM_PROMPTS
 
 
 class ChatHistory:
     """Manages chat conversation history"""
     
-    def __init__(self, system_prompt: str = SYSTEM_PROMPT):
+    def __init__(self, system_prompt: str = SYSTEM_PROMPT, language: str = "auto"):
+        self.language = language
         self.system_prompt = system_prompt
         self.messages: list[dict[str, str]] = []
         self.history_file = Path(HISTORY_FILE)
@@ -19,6 +20,34 @@ class ChatHistory:
                 "role": "system",
                 "content": self.system_prompt
             })
+    
+    def update_system_prompt(self, language: str = None):
+        """Update system prompt based on language setting"""
+        if language:
+            self.language = language
+        
+        new_prompt = SYSTEM_PROMPTS.get(self.language, SYSTEM_PROMPTS["en"])
+        self.system_prompt = new_prompt
+        
+        # Update or add system prompt in messages
+        if self.messages and self.messages[0].get('role') == 'system':
+            self.messages[0]['content'] = new_prompt
+        else:
+            self.messages.insert(0, {
+                "role": "system",
+                "content": new_prompt
+            })
+    
+    def set_language(self, language: str):
+        """Set language and update system prompt"""
+        if language not in SYSTEM_PROMPTS:
+            raise ValueError(f"Unsupported language: {language}")
+        self.language = language
+        self.update_system_prompt(language)
+    
+    def get_language(self) -> str:
+        """Get current language setting"""
+        return self.language
     
     def add_user_message(self, content: str):
         """Add user message to history"""

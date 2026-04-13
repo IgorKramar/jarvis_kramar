@@ -1,16 +1,28 @@
 """LM Studio API Client"""
 import requests
 from typing import Optional, Generator, Dict, Any
-from .config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL
+from .config import LM_STUDIO_BASE_URL, LM_STUDIO_MODEL, SYSTEM_PROMPTS
 
 
 class LMStudioClient:
     """Client for interacting with LM Studio API"""
     
-    def __init__(self, base_url: str = LM_STUDIO_BASE_URL, model: str = None):
+    def __init__(self, base_url: str = LM_STUDIO_BASE_URL, model: str = None, language: str = "auto"):
         self.base_url = base_url.rstrip('/')
         self.model = model or LM_STUDIO_MODEL
+        self.language = language
         self.session = requests.Session()
+    
+    def set_language(self, language: str):
+        """Set the response language"""
+        if language in SYSTEM_PROMPTS:
+            self.language = language
+        else:
+            raise ValueError(f"Unsupported language: {language}. Supported: {list(SYSTEM_PROMPTS.keys())}")
+    
+    def get_system_prompt(self) -> str:
+        """Get system prompt for current language"""
+        return SYSTEM_PROMPTS.get(self.language, SYSTEM_PROMPTS["en"])
     
     def get_available_models(self) -> list[str]:
         """Get list of available models from LM Studio"""

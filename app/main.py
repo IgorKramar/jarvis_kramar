@@ -3,7 +3,7 @@
 import sys
 from .client import LMStudioClient
 from .chat import ChatHistory
-from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE
+from .config import DEFAULT_MAX_TOKENS, DEFAULT_TEMPERATURE, SUPPORTED_LANGUAGES, SYSTEM_PROMPTS
 
 
 def print_welcome():
@@ -14,14 +14,16 @@ def print_welcome():
     print(f"🎩 {PERSONALITY_NAME} - Your Personal AI Butler")
     print("=" * 60)
     print("Commands:")
-    print("  /help     - Show this help message")
-    print("  /clear    - Clear chat history")
-    print("  /save     - Save chat history to file")
-    print("  /load     - Load chat history from file")
-    print("  /models   - List available models")
-    print("  /model    - Switch to a different model")
+    print("  /help        - Show this help message")
+    print("  /clear       - Clear chat history")
+    print("  /save        - Save chat history to file")
+    print("  /load        - Load chat history from file")
+    print("  /models      - List available models")
+    print("  /model       - Switch to a different model")
     print("  /personality - Display current personality settings")
-    print("  /quit     - Exit the assistant")
+    print("  /lang        - Set response language (auto, en, ru, fr, de, es)")
+    print("  /langs       - List available languages")
+    print("  /quit        - Exit the assistant")
     print("=" * 60)
     print()
 
@@ -29,9 +31,10 @@ def print_welcome():
 def main():
     """Main function to run the CLI assistant"""
     
-    # Initialize client and chat
-    client = LMStudioClient()
-    chat = ChatHistory()
+    # Initialize client and chat with default language
+    from .config import DEFAULT_LANGUAGE
+    client = LMStudioClient(language=DEFAULT_LANGUAGE)
+    chat = ChatHistory(language=DEFAULT_LANGUAGE)
     
     print_welcome()
     
@@ -51,6 +54,8 @@ def main():
         print("Make sure LM Studio is running with server enabled on http://localhost:1234")
         print()
     
+    # Show current language setting
+    print(f"🌐 Current language: {chat.get_language()} ({SUPPORTED_LANGUAGES.get(chat.get_language(), 'Automatic')})")
     print("Type your message and press Enter to chat.\n")
     
     while True:
@@ -113,9 +118,34 @@ def main():
                 elif command == '/personality':
                     from .config import PERSONALITY_NAME, PERSONALITY_DESCRIPTION
                     print(f"\n🎭 Current Personality: {PERSONALITY_NAME}")
+                    print(f"🌐 Language: {chat.get_language()} ({SUPPORTED_LANGUAGES.get(chat.get_language(), 'Automatic')})")
                     print("-" * 60)
                     print(PERSONALITY_DESCRIPTION)
                     print("-" * 60 + "\n")
+                
+                elif command == '/lang':
+                    parts = user_input.split(maxsplit=1)
+                    if len(parts) < 2:
+                        print("Usage: /lang <language_code>")
+                        print(f"Available languages: {', '.join(SYSTEM_PROMPTS.keys())}")
+                        print(f"Current: {chat.get_language()}\n")
+                    else:
+                        new_lang = parts[1].lower()
+                        if new_lang in SYSTEM_PROMPTS:
+                            chat.set_language(new_lang)
+                            client.set_language(new_lang)
+                            lang_name = SUPPORTED_LANGUAGES.get(new_lang, new_lang)
+                            print(f"🌐 Language switched to: {new_lang} ({lang_name})\n")
+                        else:
+                            print(f"Language '{new_lang}' not supported.")
+                            print(f"Available: {', '.join(SYSTEM_PROMPTS.keys())}\n")
+                
+                elif command == '/langs':
+                    print("\n🌐 Available languages:")
+                    for code, name in SUPPORTED_LANGUAGES.items():
+                        marker = "✓" if code == chat.get_language() else " "
+                        print(f"  {marker} {code}: {name}")
+                    print()
                 
                 else:
                     print(f"Unknown command: {command}. Type /help for available commands.\n")
