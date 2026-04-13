@@ -91,3 +91,36 @@ SYSTEM_PROMPT = PERSONALITY_DESCRIPTION
 # History settings
 HISTORY_FILE = "chat_history.json"
 MAX_HISTORY_LENGTH = 50
+
+# Default configuration dictionary for easy access
+DEFAULT_CONFIG = {
+    "base_url": LM_STUDIO_BASE_URL,
+    "model": LM_STUDIO_MODEL,
+    "max_tokens": DEFAULT_MAX_TOKENS,
+    "temperature": DEFAULT_TEMPERATURE,
+    "language": DEFAULT_LANGUAGE,
+    "personality_name": PERSONALITY_NAME,
+    "system_prompt": SYSTEM_PROMPT,
+    "history_file": HISTORY_FILE,
+    "max_history_length": MAX_HISTORY_LENGTH
+}
+
+
+class Config:
+    """Configuration class for the AI Assistant"""
+    
+    def __init__(self):
+        self.base_url = LM_STUDIO_BASE_URL
+        self.model = LM_STUDIO_MODEL
+        self.max_tokens = DEFAULT_MAX_TOKENS
+        self.temperature = DEFAULT_TEMPERATURE
+        self.language = DEFAULT_LANGUAGE
+        self.personality_name = PERSONALITY_NAME
+        self.system_prompt = SYSTEM_PROMPT
+        self.history_file = HISTORY_FILE
+        self.max_history_length = MAX_HISTORY_LENGTH
+    
+    @staticmethod
+    def get_default():
+        """Get default configuration as dictionary"""
+        return DEFAULT_CONFIG.copy()
