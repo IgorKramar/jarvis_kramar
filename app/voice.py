@@ -1,98 +1,66 @@
 """
 Голосовой модуль для Джарвиса Крамара.
 Обеспечивает распознавание речи (STT) и синтез речи (TTS).
+Использует Silero для TTS и Vosk для STT.
 """
 
-import speech_recognition as sr
-import pyttsx3
 import threading
 from typing import Optional, Callable
+
+from .tts import SileroTTS, SPEAKER_BAYA, DEVICE_CPU
+from .stt import VoskSTT
 
 
 class VoiceManager:
     """Управляет голосовым вводом и выводом."""
 
-    def __init__(self):
-        self.recognizer = sr.Recognizer()
-        self.microphone: Optional[sr.Microphone] = None
-        self.engine = pyttsx3.init()
+    def __init__(self, tts_speaker: str = SPEAKER_BAYA, 
+                 tts_device: str = DEVICE_CPU,
+                 stt_model_path: str = "model"):
+        self.tts: Optional[SileroTTS] = None
+        self.stt: Optional[VoskSTT] = None
         self.is_listening = False
         self._stop_listening = False
         
-        # Настройка голоса TTS
-        self._setup_voice()
+        # Инициализация TTS
+        try:
+            self.tts = SileroTTS(speaker=tts_speaker, device=tts_device)
+            print("Voice: TTS initialized with Silero")
+        except Exception as e:
+            print(f"Voice: Error initializing TTS: {e}")
         
-    def _setup_voice(self):
-        """Настраивает параметры голоса для британского дворецкого."""
-        voices = self.engine.getProperty('voices')
-        
-        # Пытаемся найти английский голос (предпочтительно британский)
-        english_voice = None
-        russian_voice = None
-        
-        for voice in voices:
-            if hasattr(voice, 'languages') and voice.languages:
-                lang_str = str(voice.languages).lower()
-                if 'en-gb' in lang_str or 'en_uk' in lang_str:
-                    english_voice = voice.id
-                    break
-                elif 'en' in lang_str and not english_voice:
-                    english_voice = voice.id
-                elif 'ru' in lang_str:
-                    russian_voice = voice.id
-        
-        # Устанавливаем голос (по умолчанию английский для Джарвиса)
-        if english_voice:
-            self.engine.setProperty('voice', english_voice)
-        elif russian_voice:
-            self.engine.setProperty('voice', russian_voice)
-        
-        # Настройка скорости и тона
-        self.engine.setProperty('rate', 175)  # Немного медленнее для важности
-        self.engine.setProperty('volume', 0.9)  # Громкость
+        # Инициализация STT
+        try:
+            self.stt = VoskSTT(modelpath=stt_model_path)
+            print("Voice: STT initialized with Vosk")
+        except Exception as e:
+            print(f"Voice: Error initializing STT: {e}")
         
     def set_language(self, language: str):
         """Переключает язык синтеза речи."""
-        voices = self.engine.getProperty('voices')
-        
-        for voice in voices:
-            if hasattr(voice, 'languages') and voice.languages:
-                lang_str = str(voice.languages).lower()
-                if language == 'ru' and 'ru' in lang_str:
-                    self.engine.setProperty('voice', voice.id)
-                    self.engine.setProperty('rate', 160)  # Для русского чуть медленнее
-                    return True
-                elif language in ['en', 'auto'] and ('en-gb' in lang_str or 'en_uk' in lang_str or 'en' in lang_str):
-                    self.engine.setProperty('voice', voice.id)
-                    self.engine.setProperty('rate', 175)
-                    return True
-        
-        return False
-        
-    def initialize_microphone(self) -> bool:
-        """Инициализирует микрофон для записи."""
-        try:
-            self.microphone = sr.Microphone()
-            # Калибровка шума
-            with self.microphone as source:
-                self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+        # Silero поддерживает в основном русский язык
+        # Для других языков можно использовать другие модели
+        if language == 'ru':
+            print("Voice: Russian language selected")
             return True
-        except Exception as e:
-            print(f"Voice: Error initializing microphone: {e}")
+        else:
+            print(f"Voice: Language {language} may not be fully supported by Silero TTS")
             return False
-            
+        
     def speak(self, text: str, callback: Optional[Callable] = None):
         """
         Озвучивает текст.
         
         Args:
-            text: Текст для озвучивания
+            text: Текст для озвучивания (можно использовать + для указания ударения)
             callback: Функция обратного вызова после завершения
         """
         def _speak_thread():
             try:
-                self.engine.say(text)
-                self.engine.runAndWait()
+                if self.tts:
+                    # В headless среде или при отсутствии аудиоустройства play=False
+                    # можно установить через переменную окружения или конфигурацию
+                    self.tts.text2speech(text, play=True)
                 if callback:
                     callback()
             except Exception as e:
@@ -103,62 +71,39 @@ class VoiceManager:
         thread = threading.Thread(target=_speak_thread, daemon=True)
         thread.start()
         
-    def listen_once(self, language: str = 'en-US', callback: Optional[Callable[[str], None]] = None) -> Optional[str]:
+    def listen_once(self, language: str = 'ru-RU', callback: Optional[Callable[[str], None]] = None) -> Optional[str]:
         """
         Слушает одну фразу и возвращает распознанный текст.
         
         Args:
-            language: Язык распознавания (en-US, ru-RU, etc.)
+            language: Язык распознавания (для Vosk используется модель языка)
             callback: Функция обратного вызова с результатом
             
         Returns:
             Распознанный текст или None
         """
-        if not self.microphone:
-            if not self.initialize_microphone():
-                return None
-                
-        try:
-            with self.microphone as source:
-                print("Voice: Listening...")
-                audio = self.recognizer.listen(source, timeout=5, phrase_time_limit=15)
-                
-            print("Voice: Recognizing...")
-            # Используем Google Speech Recognition (бесплатно, требует интернет)
-            # Можно заменить на Whisper локально
-            text = self.recognizer.recognize_google(audio, language=language)
-            print(f"Voice: Recognized: {text}")
-            
+        if not self.stt:
+            print("Voice: STT not initialized")
+            return None
+        
+        def _listen_callback(text):
             if callback:
                 callback(text)
                 
-            return text
+        return self.stt.listen_once(executor=_listen_callback)
             
-        except sr.WaitTimeoutError:
-            print("Voice: No speech detected")
-            return None
-        except sr.UnknownValueError:
-            print("Voice: Could not understand audio")
-            return None
-        except sr.RequestError as e:
-            print(f"Voice: Recognition service error: {e}")
-            return None
-        except Exception as e:
-            print(f"Voice: Error during recognition: {e}")
-            return None
-            
-    def start_continuous_listening(self, language: str = 'en-US', 
+    def start_continuous_listening(self, language: str = 'ru-RU', 
                                    on_speech: Optional[Callable[[str], None]] = None):
         """
         Запускает непрерывное прослушивание в фоновом потоке.
         
         Args:
-            language: Язык распознавания
+            language: Язык распознавания (для Vosk используется модель языка)
             on_speech: Callback при распознавании речи
         """
-        if not self.microphone:
-            if not self.initialize_microphone():
-                return
+        if not self.stt:
+            print("Voice: STT not initialized")
+            return
                 
         self.is_listening = True
         self._stop_listening = False
@@ -166,15 +111,8 @@ class VoiceManager:
         def _listen_loop():
             while self.is_listening and not self._stop_listening:
                 try:
-                    with self.microphone as source:
-                        audio = self.recognizer.listen(source, timeout=3, phrase_time_limit=15)
-                    
-                    text = self.recognizer.recognize_google(audio, language=language)
-                    if text and on_speech:
-                        on_speech(text)
-                        
-                except sr.WaitTimeoutError:
-                    continue
+                    # Используем listen с executor
+                    self.stt.listen(on_speech)
                 except Exception as e:
                     if self.is_listening:
                         print(f"Voice: Continuous listening error: {e}")
@@ -190,36 +128,24 @@ class VoiceManager:
         
     def is_available(self) -> bool:
         """Проверяет доступность голосовых функций."""
-        try:
-            # Проверка микрофона
-            mic_available = True
-            try:
-                test_mic = sr.Microphone()
-                test_mic.__enter__()
-                test_mic.__exit__(None, None, None)
-            except:
-                mic_available = False
-            
-            # Проверка движка TTS
-            tts_available = True
-            try:
-                test_engine = pyttsx3.init()
-                test_engine.say("test")
-            except:
-                tts_available = False
-                
-            return mic_available or tts_available
-        except:
-            return False
+        tts_available = self.tts is not None
+        stt_available = self.stt is not None
+        return tts_available or stt_available
 
 
 # Глобальный экземпляр
 _voice_manager: Optional[VoiceManager] = None
 
 
-def get_voice_manager() -> VoiceManager:
+def get_voice_manager(tts_speaker: str = SPEAKER_BAYA, 
+                      tts_device: str = DEVICE_CPU,
+                      stt_model_path: str = "model") -> VoiceManager:
     """Получает глобальный экземпляр VoiceManager."""
     global _voice_manager
     if _voice_manager is None:
-        _voice_manager = VoiceManager()
+        _voice_manager = VoiceManager(
+            tts_speaker=tts_speaker,
+            tts_device=tts_device,
+            stt_model_path=stt_model_path
+        )
     return _voice_manager
