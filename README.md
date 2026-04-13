@@ -61,8 +61,28 @@ Jarvis Kramar поддерживает несколько языков с уни
 
 ## 🚀 Установка
 
-1. **Установите зависимости:**
+### Вариант 1: Использование uv (рекомендуется)
+
+[uv](https://docs.astral.sh/uv/) - современный менеджер пакетов и виртуальных окружений для Python.
+
 ```bash
+# Установите uv (если ещё не установлен)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Синхронизируйте зависимости и создайте виртуальное окружение
+uv sync
+
+# Запустите CLI
+uv run jarvis-cli
+
+# Или запустите GUI
+uv run jarvis-gui
+```
+
+### Вариант 2: Традиционный pip
+
+```bash
+# Установите все зависимости
 pip install -r requirements.txt
 ```
 
@@ -79,7 +99,21 @@ pip install customtkinter packaging
 
 ## 💻 Запуск
 
-### Консольный режим (CLI):
+### Через uv (рекомендуется):
+
+#### Консольный режим (CLI):
+```bash
+uv run jarvis-cli
+```
+
+#### Графический режим (GUI):
+```bash
+uv run jarvis-gui
+```
+
+### Традиционный запуск:
+
+#### Консольный режим (CLI):
 
 ```bash
 python -m app.main
@@ -91,7 +125,7 @@ python -m app.main
 python -c "from app.main import main; main()"
 ```
 
-### Графический режим (GUI):
+#### Графический режим (GUI):
 
 ```bash
 python run_gui.py
@@ -101,6 +135,16 @@ python run_gui.py
 
 ```bash
 python -c "from app.gui import run_gui; run_gui()"
+```
+
+### Через установленные entry points (после uv sync или pip install):
+
+```bash
+# CLI
+jarvis-cli
+
+# GUI
+jarvis-gui
 ```
 
 ## 📖 Использование
@@ -197,10 +241,11 @@ python -c "from app.gui import run_gui; run_gui()"
 │   ├── client.py        # Клиент LM Studio API (с поддержкой языков)
 │   ├── chat.py          # Управление историей чата (с переключением языка)
 │   └── config.py        # Конфигурация, личность и языковые настройки
-├── requirements.txt     # Зависимости
+├── pyproject.toml       # Конфигурация проекта для uv/pip
 ├── run_gui.py           # Скрипт запуска GUI
 ├── .env.example         # Пример переменных окружения
-└── README.md            # Документация
+├── README.md            # Документация
+└── .venv/               # Виртуальное окружение (создаётся через uv sync)
 ```
 
 ## 🔧 Расширение
