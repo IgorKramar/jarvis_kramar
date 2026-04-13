@@ -961,25 +961,6 @@ class JarvisGUI(ctk.CTk):
         if clean_text:
             self.voice_manager.speak(clean_text)
 
-    def _on_language_change(self, new_lang):
-        """Обработка смены языка"""
-
-        if self.chat_history:
-            self.chat_history.set_language(new_lang)
-
-        if self.client:
-            self.client.set_language(new_lang)
-
-        # Обновление языка для TTS
-        if self.voice_manager and self.voice_enabled:
-            self.voice_manager.set_language(new_lang if new_lang != 'auto' else 'en')
-
-        self.status_label.configure(text=f"Language changed to: {new_lang.upper()}")
-
-        
-        self.is_streaming = False
-        self.destroy()
-
 
 def run_gui():
     """Запуск GUI приложения"""
