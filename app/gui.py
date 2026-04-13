@@ -261,6 +261,7 @@ class JarvisGUI(ctk.CTk):
             sidebar,
             variable=self.tokens_var,
             values=["512", "1024", "2048", "4096", "8192"],
+            command=self._on_tokens_change,
             fg_color=SteampunkTheme.DARK_BRONZE,
             button_color=SteampunkTheme.BRONZE,
             button_hover_color=SteampunkTheme.COPPER,
@@ -485,9 +486,7 @@ class JarvisGUI(ctk.CTk):
             self.client = LMStudioClient(
                 base_url=DEFAULT_CONFIG["base_url"],
                 model=DEFAULT_CONFIG["model"],
-                language=self.lang_var.get(),
-                max_tokens=int(self.tokens_var.get()),
-                temperature=self.temp_slider.get()
+                language=self.lang_var.get()
             )
             
             self.chat_history = ChatHistory(language=self.lang_var.get())
@@ -793,6 +792,14 @@ class JarvisGUI(ctk.CTk):
         
         if self.client:
             self.client.temperature = value
+    
+    def _on_tokens_change(self, value):
+        """Обработка изменения количества токенов"""
+        
+        if self.client:
+            self.client.max_tokens = int(value)
+        
+        self.status_label.configure(text=f"Max tokens set to: {value}")
     
     def _on_closing(self):
         """Обработка закрытия окна"""
